@@ -1,4 +1,3 @@
-#![cfg(feature = "legacy")]
 use std::{collections::BTreeMap, io::Error};
 
 use byteorder::{LittleEndian, ReadBytesExt};
