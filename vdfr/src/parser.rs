@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use nom::{
     bytes::complete::{take, take_until},
+    error::{ErrorKind, ParseError},
     multi::{count, many0},
     number::complete::{be_u16, le_f32, le_i32, le_i64, le_u16, le_u32, le_u64, le_u8},
     sequence::tuple,
@@ -44,6 +45,68 @@ fn throw_nom_error(error: nom::Err<nom::error::Error<&[u8]>>) -> VdfrError {
     }
 }
 
+struct VdfrNomError {
+    message: String,
+}
+
+fn format_data(data: &[u8]) -> &[u8] {
+    if data.len() > 64 {
+        &data[..64]
+    } else {
+        data
+    }
+}
+
+impl ParseError<&[u8]> for VdfrNomError {
+    fn from_error_kind(input: &[u8], kind: nom::error::ErrorKind) -> Self {
+        VdfrNomError {
+            message: format!("Error: {:?}, data: {:?}", kind, format_data(input)),
+        }
+    }
+
+    // if combining multiple errors, we show them one after the other
+    fn append(input: &[u8], kind: ErrorKind, other: Self) -> Self {
+        let message = format!("{}{:?}:\t{:?}\n", other.message, kind, format_data(input));
+        println!("{}", message);
+        VdfrNomError { message }
+    }
+
+    fn from_char(input: &[u8], c: char) -> Self {
+        let message = format!("'{}':\t{:?}\n", c, format_data(input));
+        println!("{}", message);
+        VdfrNomError { message }
+    }
+
+    fn or(self, other: Self) -> Self {
+        let message = format!("{}\tOR\n{}\n", self.message, other.message);
+        println!("{}", message);
+        VdfrNomError { message }
+    }
+}
+
+impl VdfrNomError {
+    fn with_message(&self, input: &str) -> Self {
+        VdfrNomError {
+            message: format!("{}: {}", input, self.message),
+        }
+    }
+}
+
+fn throw_nom_custom_error(error: nom::Err<VdfrNomError>) -> VdfrError {
+    match error {
+        nom::Err::Error(e) | nom::Err::Failure(e) => VdfrError::NomError(e.message),
+        nom::Err::Incomplete(e) => {
+            let need_amount = if let nom::Needed::Size(amount) = e {
+                format!("{} bytes", amount)
+            } else {
+                "unknown amount".to_string()
+            };
+
+            VdfrError::NomError(format!("Incomplete data, need: {}", need_amount))
+        }
+    }
+}
+
 pub fn parse_app_info(data: &[u8]) -> Result<AppInfo, VdfrError> {
     let (data, (version, universe)) = tuple((le_u32, le_u32))(data).map_err(throw_nom_error)?;
     let version: AppInfoVersion = version.try_into()?;
@@ -63,7 +126,7 @@ pub fn parse_app_info(data: &[u8]) -> Result<AppInfo, VdfrError> {
             let (string_pools, count) = le_u32(string_pools).map_err(throw_nom_error)?;
 
             let (_, string_pool) =
-                read_string_pools(string_pools, count as usize).map_err(throw_nom_error)?;
+                read_string_pools(string_pools, count as usize).map_err(throw_nom_custom_error)?;
 
             (
                 payload,
@@ -75,7 +138,7 @@ pub fn parse_app_info(data: &[u8]) -> Result<AppInfo, VdfrError> {
         }
     };
 
-    let (_, mut apps) = parse_apps(payloads, &options, &version).map_err(throw_nom_error)?;
+    let (_, mut apps) = parse_apps(payloads, &options, &version).map_err(throw_nom_custom_error)?;
 
     // Remove the empty app (0)
     apps.remove(&0);
@@ -91,7 +154,7 @@ fn parse_apps<'a>(
     data: &'a [u8],
     options: &'a KeyValueOptions,
     version: &'a AppInfoVersion,
-) -> IResult<&'a [u8], BTreeMap<u32, App>> {
+) -> IResult<&'a [u8], BTreeMap<u32, App>, VdfrNomError> {
     let (rest, apps) = many0(|d| parse_app(d, options, version))(data)?;
 
     let hash_apps: BTreeMap<u32, App> = apps.into_iter().map(|app| (app.id, app)).collect();
@@ -103,7 +166,7 @@ fn parse_app<'a>(
     data: &'a [u8],
     options: &'a KeyValueOptions,
     version: &'a AppInfoVersion,
-) -> IResult<&'a [u8], App> {
+) -> IResult<&'a [u8], App, VdfrNomError> {
     let (data, app_id) = le_u32(data)?;
 
     if app_id == 0 {
@@ -163,7 +226,7 @@ pub fn parse_package_info(data: &[u8]) -> Result<PackageInfo, VdfrError> {
     let (data, (version, universe)) = tuple((le_u32, le_u32))(data).map_err(throw_nom_error)?;
 
     let (_, mut packages) =
-        parse_packages(data, &KeyValueOptions::default()).map_err(throw_nom_error)?;
+        parse_packages(data, &KeyValueOptions::default()).map_err(throw_nom_custom_error)?;
 
     packages.remove(&0xffffffff); // Remove the empty package (0xffffffff
 
@@ -177,7 +240,7 @@ pub fn parse_package_info(data: &[u8]) -> Result<PackageInfo, VdfrError> {
 fn parse_packages<'a>(
     data: &'a [u8],
     options: &'a KeyValueOptions,
-) -> IResult<&'a [u8], BTreeMap<u32, Package>> {
+) -> IResult<&'a [u8], BTreeMap<u32, Package>, VdfrNomError> {
     let (rest, packages) = many0(|d| parse_package(d, options))(data)?;
 
     let hash_packages: BTreeMap<u32, Package> =
@@ -186,7 +249,10 @@ fn parse_packages<'a>(
     Ok((rest, hash_packages))
 }
 
-fn parse_package<'a>(data: &'a [u8], options: &'a KeyValueOptions) -> IResult<&'a [u8], Package> {
+fn parse_package<'a>(
+    data: &'a [u8],
+    options: &'a KeyValueOptions,
+) -> IResult<&'a [u8], Package, VdfrNomError> {
     let (data, package_id) = le_u32(data)?;
     if package_id == 0xffffffff {
         return Ok((
@@ -221,7 +287,7 @@ fn parse_package<'a>(data: &'a [u8], options: &'a KeyValueOptions) -> IResult<&'
 
 pub fn parse_keyvalues(data: &[u8]) -> Result<KeyValues, VdfrError> {
     let (_, key_values) =
-        parse_bytes_kv(data, &KeyValueOptions::default()).map_err(throw_nom_error)?;
+        parse_bytes_kv(data, &KeyValueOptions::default()).map_err(throw_nom_custom_error)?;
     let key_values = map_keyvalues_sequence(&key_values);
     Ok(key_values)
 }
@@ -229,7 +295,7 @@ pub fn parse_keyvalues(data: &[u8]) -> Result<KeyValues, VdfrError> {
 fn parse_bytes_kv<'a>(
     data: &'a [u8],
     options: &'a KeyValueOptions,
-) -> IResult<&'a [u8], KeyValues> {
+) -> IResult<&'a [u8], KeyValues, VdfrNomError> {
     let bin_end = if options.alt_format {
         BIN_END_ALT
     } else {
@@ -252,10 +318,18 @@ fn parse_bytes_kv<'a>(
             let (res, index) = le_u32(res)?;
             let index = index as usize;
             if index >= options.string_pool.len() {
-                return Err(nom::Err::Error(nom::error::Error::new(
-                    res,
-                    nom::error::ErrorKind::Eof,
-                )));
+                // use empty input
+                let error_data =
+                    VdfrNomError::from_error_kind(&[], nom::error::ErrorKind::LengthValue)
+                        .with_message(
+                            format!(
+                                "index out of bounds in string pool (index: {}, pool size: {})",
+                                index,
+                                options.string_pool.len()
+                            )
+                            .as_str(),
+                        );
+                return Err(nom::Err::Failure(error_data));
             }
             (res, options.string_pool[index].clone())
         };
@@ -296,10 +370,17 @@ fn parse_bytes_kv<'a>(
                 (res, Value::Float32Type(value))
             }
             _ => {
-                return Err(nom::Err::Error(nom::error::Error::new(
-                    res,
-                    nom::error::ErrorKind::Char,
-                )));
+                let error_data =
+                    VdfrNomError::from_error_kind(&[bin], nom::error::ErrorKind::LengthValue)
+                        .with_message(
+                            format!(
+                                "unknown type in key-values (type: {}, key: {})",
+                                bin,
+                                key.as_str()
+                            )
+                            .as_str(),
+                        );
+                return Err(nom::Err::Failure(error_data));
             }
         };
 
@@ -308,16 +389,20 @@ fn parse_bytes_kv<'a>(
     }
 }
 
-fn read_string_pools(data: &[u8], amount: usize) -> IResult<&[u8], Vec<String>> {
+fn read_string_pools(data: &[u8], amount: usize) -> IResult<&[u8], Vec<String>, VdfrNomError> {
     count(parse_utf8, amount)(data)
 }
 
-fn parse_utf8(input: &[u8]) -> IResult<&[u8], String> {
+fn parse_utf8(input: &[u8]) -> IResult<&[u8], String, VdfrNomError> {
     // Parse until NULL byte
     let (rest, buf) = take_until("\0")(input)?;
     let (rest, _) = le_u8(rest)?; // Skip NULL byte
-    let s = std::str::from_utf8(buf)
-        .map_err(|_| nom::Err::Error(nom::error::Error::new(buf, nom::error::ErrorKind::Char)))?;
+    let s = std::str::from_utf8(buf).map_err(|_| {
+        nom::Err::Failure(
+            VdfrNomError::from_error_kind(buf, nom::error::ErrorKind::Char)
+                .with_message("Failed to parse UTF-8 string"),
+        )
+    })?;
     Ok((rest, s.to_string()))
 }
 
@@ -326,7 +411,7 @@ enum Endian {
     Le,
 }
 
-fn parse_utf16(input: &[u8]) -> IResult<&[u8], String> {
+fn parse_utf16(input: &[u8]) -> IResult<&[u8], String, VdfrNomError> {
     // Parse until NULL byte
     let (rest, buf) = take_until("\0\0")(input)?;
     // Check if BOM is preset, if not assume BE
@@ -362,7 +447,11 @@ fn parse_utf16(input: &[u8]) -> IResult<&[u8], String> {
         v.push(c);
     }
     v.push(0); // Add NULL terminator
-    let s = String::from_utf16(&v)
-        .map_err(|_| nom::Err::Error(nom::error::Error::new(buf, nom::error::ErrorKind::Char)))?;
+    let s = String::from_utf16(&v).map_err(|_| {
+        nom::Err::Failure(
+            VdfrNomError::from_error_kind(buf, nom::error::ErrorKind::Char)
+                .with_message("Failed to parse UTF-16 string"),
+        )
+    })?;
     Ok((rest, s))
 }
