@@ -159,7 +159,7 @@ fn parse_app<'a>(
     }
 }
 
-pub fn parse_package_info<'a>(data: &'a [u8]) -> Result<PackageInfo, VdfrError> {
+pub fn parse_package_info(data: &[u8]) -> Result<PackageInfo, VdfrError> {
     let (data, (version, universe)) = tuple((le_u32, le_u32))(data).map_err(throw_nom_error)?;
 
     let (_, mut packages) =

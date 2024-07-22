@@ -22,7 +22,7 @@ pub fn parse_app_info<R: std::io::Read + std::io::Seek>(
 
     if version == AppInfoVersion::V29 {
         let offset_table = reader.read_i64::<LittleEndian>()?;
-        let old_offset = reader.stream_position()?.clone();
+        let old_offset = reader.stream_position().unwrap();
         reader.seek(std::io::SeekFrom::Start(offset_table as u64))?;
         let string_count = reader.read_u32::<LittleEndian>()?;
         options.string_pool = (0..string_count)
@@ -194,7 +194,7 @@ fn read_string<R: std::io::Read>(reader: &mut R, wide: bool) -> Result<String, E
             }
             buf.push(c);
         }
-        return Ok(std::string::String::from_utf16_lossy(&buf).to_string());
+        Ok(std::string::String::from_utf16_lossy(&buf).to_string())
     } else {
         let mut buf: Vec<u8> = vec![];
         loop {
@@ -204,6 +204,6 @@ fn read_string<R: std::io::Read>(reader: &mut R, wide: bool) -> Result<String, E
             }
             buf.push(c);
         }
-        return Ok(std::string::String::from_utf8_lossy(&buf).to_string());
+        Ok(std::string::String::from_utf8_lossy(&buf).to_string())
     }
 }

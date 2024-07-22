@@ -18,16 +18,12 @@ pub(crate) const MAGIC_27: u32 = 0x07_56_44_27;
 pub(crate) const MAGIC_28: u32 = 0x07_56_44_28;
 pub(crate) const MAGIC_29: u32 = 0x07_56_44_29;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SHA1([u8; 20]);
 
 impl SHA1 {
     pub fn new(data: [u8; 20]) -> Self {
         SHA1(data)
-    }
-
-    pub fn default() -> Self {
-        SHA1([0; 20])
     }
 }
 
@@ -97,9 +93,9 @@ impl TryInto<AppInfoVersion> for u32 {
     }
 }
 
-impl Into<u32> for AppInfoVersion {
-    fn into(self) -> u32 {
-        match self {
+impl From<AppInfoVersion> for u32 {
+    fn from(v: AppInfoVersion) -> u32 {
+        match v {
             AppInfoVersion::V27 => MAGIC_27,
             AppInfoVersion::V28 => MAGIC_28,
             AppInfoVersion::V29 => MAGIC_29,
@@ -163,7 +159,7 @@ pub enum Value {
 }
 
 impl Value {
-    fn into_serde_json_value(&self) -> serde_json::Value {
+    fn as_serde_json_value(&self) -> serde_json::Value {
         match self {
             Value::StringType(s) | Value::WideStringType(s) => serde_json::Value::String(s.clone()),
             Value::Int32Type(i) | Value::PointerType(i) | Value::ColorType(i) => {
@@ -177,12 +173,12 @@ impl Value {
             Value::KeyValueType(kv) => {
                 let map: serde_json::Map<String, serde_json::Value> = kv
                     .iter()
-                    .map(|(k, v)| (k.clone(), v.into_serde_json_value()))
+                    .map(|(k, v)| (k.clone(), v.as_serde_json_value()))
                     .collect();
                 serde_json::Value::Object(map)
             }
             Value::ArrayType(array) => {
-                let veca = array.iter().map(|v| v.into_serde_json_value()).collect();
+                let veca = array.iter().map(|v| v.as_serde_json_value()).collect();
                 serde_json::Value::Array(veca)
             }
         }
@@ -302,18 +298,17 @@ impl App {
     }
 
     pub fn checksum_sha1_bin(&self) -> Option<String> {
-        match &self.checksum_bin {
-            Some(sha1) => Some(format!("{:02x?}", sha1)),
-            None => None,
-        }
+        self.checksum_bin
+            .as_ref()
+            .map(|sha1| format!("{:02x?}", sha1))
     }
 
     /// Convert the key-values to a serde JSON object.
-    pub fn into_serde_keyvalues(&self) -> serde_json::Value {
+    pub fn as_serde_keyvalues(&self) -> serde_json::Value {
         let map: serde_json::Map<String, serde_json::Value> = self
             .key_values
             .iter()
-            .map(|(k, v)| (k.clone(), v.into_serde_json_value()))
+            .map(|(k, v)| (k.clone(), v.as_serde_json_value()))
             .collect();
         serde_json::Value::Object(map)
     }
@@ -345,7 +340,7 @@ impl Package {
 /// If the mapping is "0" -> "Item", "1" -> "Item", etc.
 ///
 /// If not, keep the original key-value mapping
-pub(crate) fn map_keyvalues_sequence<'a>(key_values: &'a KeyValues) -> KeyValues {
+pub(crate) fn map_keyvalues_sequence(key_values: &KeyValues) -> KeyValues {
     key_values
         .iter()
         .map(|(key, value)| {
@@ -355,7 +350,7 @@ pub(crate) fn map_keyvalues_sequence<'a>(key_values: &'a KeyValues) -> KeyValues
         .collect()
 }
 
-fn map_value_data<'a>(value: &'a Value) -> Value {
+fn map_value_data(value: &Value) -> Value {
     // This doesn't have ArrayType at all
     match value {
         Value::KeyValueType(sub_kv) => {
@@ -395,7 +390,7 @@ fn map_value_data<'a>(value: &'a Value) -> Value {
 // The order of the keys dictates the hierarchy, with all except the last having
 // to be a Value::KeyValueType.
 fn find_keys<'a>(kv: &'a KeyValues, keys: &[&str]) -> Option<&'a Value> {
-    if keys.len() == 0 {
+    if keys.is_empty() {
         return None;
     }
 
