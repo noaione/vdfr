@@ -15,7 +15,7 @@ The exposed public APIs from `vdfr` crate is:
 - `parse_keyvalues` for standard binary key values.
 
 There's two implementation:
-- `legacy_parser`, the original one created by drguildo with `byteorder` crate
+- `legacy_parser`, the original one created by drguildo with `byteorder` crate (enabled by `legacy` feature flag)
 - `parser`, the new one created by noaione with `nom` crate.
 
 There's some significant improvement with `nom`, but it might be possible to make it faster?

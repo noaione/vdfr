@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-vdfr = { path = "../vdfr" }
+vdfr = { path = "../vdfr", features = ["legacy"] }
 clap = { version = "4.5.9", features = ["derive"] }
 
 serde = { version = "1.0.204", features = ["derive"] }
