@@ -317,7 +317,7 @@ fn parse_utf8(input: &[u8]) -> IResult<&[u8], String> {
     let (rest, buf) = take_until("\0")(input)?;
     let (rest, _) = le_u8(rest)?; // Skip NULL byte
     let s = std::str::from_utf8(buf)
-        .map_err(|_| nom::Err::Error(nom::error::Error::new(rest, nom::error::ErrorKind::Char)))?;
+        .map_err(|_| nom::Err::Error(nom::error::Error::new(buf, nom::error::ErrorKind::Char)))?;
     Ok((rest, s.to_string()))
 }
 
@@ -362,6 +362,7 @@ fn parse_utf16(input: &[u8]) -> IResult<&[u8], String> {
         v.push(c);
     }
     v.push(0); // Add NULL terminator
-    let s = std::string::String::from_utf16_lossy(&v);
+    let s = String::from_utf16(&v)
+        .map_err(|_| nom::Err::Error(nom::error::Error::new(buf, nom::error::ErrorKind::Char)))?;
     Ok((rest, s))
 }
