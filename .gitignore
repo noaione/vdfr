@@ -1,3 +1,6 @@
 /target
 
 *.vdf
+app_*.json
+pkg_*.json
+kv_*.json
