@@ -1,6 +1,7 @@
 use std::fs;
 
 use clap::Parser;
+use rand::Rng;
 use vdfr::KeyValueOptions;
 
 #[derive(Debug, Parser)]
@@ -19,6 +20,7 @@ enum Subcommand {
         /// Use legacy parser
         #[clap(short, long)]
         legacy: bool,
+        /// Dump back the parsed data into JSON file, prefixed with app_
         #[clap(short, long)]
         redump: bool,
     },
@@ -30,6 +32,7 @@ enum Subcommand {
         /// Use legacy parser
         #[clap(short, long)]
         legacy: bool,
+        /// Dump back the parsed data into JSON file, prefixed with pkg_
         #[clap(short, long)]
         redump: bool,
     },
@@ -41,9 +44,15 @@ enum Subcommand {
         /// Use legacy parser
         #[clap(short, long)]
         legacy: bool,
+        /// Dump back the parsed data into JSON file, prefixed with kv_
         #[clap(short, long)]
         redump: bool,
     },
+}
+
+fn get_random_num(total: usize) -> usize {
+    let mut rng = rand::thread_rng();
+    rng.gen_range(0..total)
 }
 
 fn work_app_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
@@ -56,7 +65,10 @@ fn work_app_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
         println!("Universe: {}", reader.universe);
         println!("Total apps: {}", reader.apps.len());
         println!("Time taken to parse: {:?}", time_it.elapsed());
-        println!("First app: {:?}", reader.apps.values().next());
+        let total = reader.apps.values().count();
+        let random_app_pos = get_random_num(total);
+        let random_app = reader.apps.values().nth(random_app_pos).unwrap();
+        println!("Random app: {:?}", random_app);
         reader
     } else {
         let data = fs::read(file).unwrap();
@@ -67,7 +79,10 @@ fn work_app_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
         println!("Universe: {}", reader.universe);
         println!("Total apps: {}", reader.apps.len());
         println!("Time taken to parse: {:?}", time_it.elapsed());
-        println!("First app: {:?}", reader.apps.get(&888790).unwrap());
+        let total = reader.apps.values().count();
+        let random_app_pos = get_random_num(total);
+        let random_app = reader.apps.values().nth(random_app_pos).unwrap();
+        println!("Random app: {:?}", random_app);
         reader
     };
 
@@ -91,6 +106,10 @@ fn work_pkg_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
         println!("Version: {}", reader.version);
         println!("Total packages: {}", reader.packages.len());
         println!("Time taken to parse: {:?}", time_it.elapsed());
+        let total = reader.packages.values().count();
+        let random_pkg_pos = get_random_num(total);
+        let random_pkg = reader.packages.values().nth(random_pkg_pos).unwrap();
+        println!("Random package: {:?}", random_pkg);
         reader
     } else {
         let data = fs::read(file).unwrap();
@@ -100,6 +119,10 @@ fn work_pkg_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
         println!("Version: {}", reader.version);
         println!("Total packages: {}", reader.packages.len());
         println!("Time taken to parse: {:?}", time_it.elapsed());
+        let total = reader.packages.values().count();
+        let random_pkg_pos = get_random_num(total);
+        let random_pkg = reader.packages.values().nth(random_pkg_pos).unwrap();
+        println!("Random package: {:?}", random_pkg);
         reader
     };
 
