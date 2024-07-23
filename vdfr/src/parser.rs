@@ -419,11 +419,11 @@ fn parse_utf16(input: &[u8]) -> IResult<&[u8], String, VdfrNomError> {
             // If BE/LE, skip BOM bytes and set endianness
             (true, false) => (&buf[2..], Endian::Be),
             (false, true) => (&buf[2..], Endian::Le),
-            _ => (buf, Endian::Be),
+            _ => (buf, Endian::Le),
         }
     } else {
-        // No BOM, assume BE
-        (buf, Endian::Be)
+        // No BOM, assume LE (Windows use LE for wchar_t)
+        (buf, Endian::Le)
     };
 
     // Consume NULL byte
@@ -431,20 +431,28 @@ fn parse_utf16(input: &[u8]) -> IResult<&[u8], String, VdfrNomError> {
         Endian::Be => be_u16(rest)?,
         Endian::Le => le_u16(rest)?,
     };
+    // Consume one more
+    let (rest, _) = le_u8(rest)?;
 
-    let mut v: Vec<u16> = vec![];
-    for i in 0..buf.len() / 2 {
-        let temp_buf = [buf[i * 2], buf[i * 2 + 1]];
-        let c = match bom {
-            Endian::Be => u16::from_be_bytes(temp_buf),
-            Endian::Le => u16::from_le_bytes(temp_buf),
-        };
-        v.push(c);
-    }
-    v.push(0); // Add NULL terminator
-    let s = String::from_utf16(&v).map_err(|_| {
+    // Add missing NULL if odd length
+    let buf = buf
+        .iter()
+        .copied()
+        .chain(std::iter::once(0))
+        .collect::<Vec<u8>>();
+
+    let sbita: Vec<u16> = (0..buf.len() / 2)
+        .map(|i| {
+            let temp_buf = [buf[i * 2], buf[i * 2 + 1]];
+            match bom {
+                Endian::Be => u16::from_be_bytes(temp_buf),
+                Endian::Le => u16::from_le_bytes(temp_buf),
+            }
+        })
+        .collect();
+    let s = String::from_utf16(&sbita).map_err(|_| {
         nom::Err::Failure(
-            VdfrNomError::from_error_kind(buf, nom::error::ErrorKind::Char)
+            VdfrNomError::from_error_kind(&buf, nom::error::ErrorKind::Char)
                 .with_message("Failed to parse UTF-16 string"),
         )
     })?;
