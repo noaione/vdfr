@@ -87,7 +87,7 @@ impl ParseError<&[u8]> for VdfrNomError {
 impl VdfrNomError {
     fn with_message(&self, input: &str) -> Self {
         VdfrNomError {
-            message: format!("{}: {}", input, self.message),
+            message: format!("{}:\n{}", input, self.message),
         }
     }
 }
@@ -319,16 +319,15 @@ fn parse_bytes_kv<'a>(
             let index = index as usize;
             if index >= options.string_pool.len() {
                 // use empty input
+                // convert u32 into 4 bytes of u8
+                let index_num = index.to_le_bytes();
                 let error_data =
-                    VdfrNomError::from_error_kind(&[], nom::error::ErrorKind::LengthValue)
-                        .with_message(
-                            format!(
-                                "index out of bounds in string pool (index: {}, pool size: {})",
-                                index,
-                                options.string_pool.len()
-                            )
-                            .as_str(),
-                        );
+                    VdfrNomError::from_error_kind(&index_num, nom::error::ErrorKind::LengthValue)
+                        .with_message(&format!(
+                            "Index out of bounds in string pool (index: {}, pool size: {})",
+                            index,
+                            options.string_pool.len()
+                        ));
                 return Err(nom::Err::Failure(error_data));
             }
             (res, options.string_pool[index].clone())
@@ -372,14 +371,10 @@ fn parse_bytes_kv<'a>(
             _ => {
                 let error_data =
                     VdfrNomError::from_error_kind(&[bin], nom::error::ErrorKind::LengthValue)
-                        .with_message(
-                            format!(
-                                "unknown type in key-values (type: {}, key: {})",
-                                bin,
-                                key.as_str()
-                            )
-                            .as_str(),
-                        );
+                        .with_message(&format!(
+                            "unknown type in key-values (type: {}, key: {})",
+                            bin, &key
+                        ));
                 return Err(nom::Err::Failure(error_data));
             }
         };
