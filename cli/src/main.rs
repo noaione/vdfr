@@ -93,7 +93,7 @@ fn work_app_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
             .unwrap()
             .join(format!("app_{}.json", filename));
         let output_file = fs::File::create(&output_path).unwrap();
-        serde_json::to_writer_pretty(output_file, &data).unwrap();
+        vdfr::serde_json::to_writer_pretty(output_file, &data).unwrap();
     }
 }
 
@@ -133,7 +133,7 @@ fn work_pkg_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
             .unwrap()
             .join(format!("pkg_{}.json", filename));
         let output_file = fs::File::create(&output_path).unwrap();
-        serde_json::to_writer_pretty(output_file, &data).unwrap();
+        vdfr::serde_json::to_writer_pretty(output_file, &data).unwrap();
     }
 }
 
@@ -161,7 +161,7 @@ fn work_kv(file: &std::path::PathBuf, legacy: bool, redump: bool) {
         let filename = file.file_stem().unwrap().to_str().unwrap();
         let output_path = file.parent().unwrap().join(format!("kv_{}.json", filename));
         let output_file = fs::File::create(&output_path).unwrap();
-        serde_json::to_writer_pretty(output_file, &data).unwrap();
+        vdfr::serde_json::to_writer_pretty(output_file, &data).unwrap();
     }
 }
 

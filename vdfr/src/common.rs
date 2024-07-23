@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, ops::Deref};
 
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde")]
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
 pub(crate) const BIN_KV: u8 = b'\x00';
 pub(crate) const BIN_STRING: u8 = b'\x01';
@@ -35,12 +36,30 @@ impl Deref for SHA1 {
     }
 }
 
+#[cfg(feature = "serde")]
 impl Serialize for SHA1 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         serializer.serialize_str(&format!("{:02x?}", self))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for SHA1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        let mut data = [0; 20];
+        for (i, c) in s.as_bytes().chunks(2).enumerate() {
+            data[i] = u8::from_str_radix(std::str::from_utf8(c).unwrap(), 16)
+                .map_err(serde::de::Error::custom)?;
+        }
+
+        Ok(SHA1(data))
     }
 }
 
@@ -61,6 +80,7 @@ pub enum AppInfoVersion {
     V29,
 }
 
+#[cfg(feature = "serde")]
 impl Serialize for AppInfoVersion {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -70,6 +90,7 @@ impl Serialize for AppInfoVersion {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for AppInfoVersion {
     fn deserialize<D>(deserializer: D) -> Result<AppInfoVersion, D::Error>
     where
@@ -159,6 +180,7 @@ pub enum Value {
 }
 
 impl Value {
+    #[cfg(feature = "serde")]
     fn as_serde_json_value(&self) -> serde_json::Value {
         match self {
             Value::StringType(s) | Value::WideStringType(s) => serde_json::Value::String(s.clone()),
@@ -185,6 +207,7 @@ impl Value {
     }
 }
 
+#[cfg(feature = "serde")]
 impl serde::Serialize for Value {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -252,7 +275,7 @@ pub struct KeyValueOptions {
     pub alt_format: bool,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Clone)]
 pub struct App {
     pub id: u32,
     pub size: u32,
@@ -263,6 +286,26 @@ pub struct App {
     pub checksum_bin: Option<SHA1>,
     pub change_number: u32,
     pub key_values: KeyValues,
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for App {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("App", 9)?;
+        state.serialize_field("id", &self.id)?;
+        state.serialize_field("size", &self.size)?;
+        state.serialize_field("state", &self.state)?;
+        state.serialize_field("last_update", &self.last_update)?;
+        state.serialize_field("access_token", &self.access_token)?;
+        state.serialize_field("checksum_txt", &self.checksum_sha1_txt())?;
+        state.serialize_field("checksum_bin", &self.checksum_sha1_bin())?;
+        state.serialize_field("change_number", &self.change_number)?;
+        state.serialize_field("key_values", &self.key_values)?;
+        state.end()
+    }
 }
 
 impl std::fmt::Debug for App {
@@ -281,11 +324,25 @@ impl std::fmt::Debug for App {
     }
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct AppInfo {
     pub version: AppInfoVersion,
     pub universe: u32,
     pub apps: BTreeMap<u32, App>,
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for AppInfo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("AppInfo", 3)?;
+        state.serialize_field("version", &self.version)?;
+        state.serialize_field("universe", &self.universe)?;
+        state.serialize_field("apps", &self.apps)?;
+        state.end()
+    }
 }
 
 impl App {
@@ -304,6 +361,7 @@ impl App {
     }
 
     /// Convert the key-values to a serde JSON object.
+    #[cfg(feature = "serde")]
     pub fn as_serde_keyvalues(&self) -> serde_json::Value {
         let map: serde_json::Map<String, serde_json::Value> = self
             .key_values
@@ -314,7 +372,7 @@ impl App {
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct Package {
     pub id: u32,
     pub checksum: SHA1,
@@ -323,11 +381,41 @@ pub struct Package {
     pub key_values: KeyValues,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[cfg(feature = "serde")]
+impl serde::Serialize for Package {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("Package", 5)?;
+        state.serialize_field("id", &self.id)?;
+        state.serialize_field("checksum", &self.checksum)?;
+        state.serialize_field("change_number", &self.change_number)?;
+        state.serialize_field("pics", &self.pics)?;
+        state.serialize_field("key_values", &self.key_values)?;
+        state.end()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct PackageInfo {
     pub version: u32,
     pub universe: u32,
     pub packages: BTreeMap<u32, Package>,
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for PackageInfo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("PackageInfo", 3)?;
+        state.serialize_field("version", &self.version)?;
+        state.serialize_field("universe", &self.universe)?;
+        state.serialize_field("packages", &self.packages)?;
+        state.end()
+    }
 }
 
 impl Package {
