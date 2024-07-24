@@ -4,3 +4,8 @@
 app_*.json
 pkg_*.json
 kv_*.json
+
+# Test VDF
+!vdfr/tests/**/*.vdf
+# Expected result
+!vdfr/tests/**/*.json
