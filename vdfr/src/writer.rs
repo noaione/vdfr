@@ -26,7 +26,7 @@ fn write_utf16<W: std::io::Write>(writer: &mut W, string: &str) -> std::io::Resu
         writer.write_all(&c.to_le_bytes())?;
     }
     // There's 2 bytes for the null terminator + 1 extra byte
-    writer.write_all(&[0, 0, 0])
+    writer.write_all(&[0, 0])
 }
 
 fn write_keyvalue<W: std::io::Write>(
