@@ -1,5 +1,6 @@
 {
   "TestObject": {
-    "key": "value"
+    "key": "value",
+    "key2": "utf8 value"
   }
 }
