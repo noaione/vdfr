@@ -161,6 +161,7 @@ pub fn collect_string_pools(string_pools: &mut HashSet<String>, key_values: &Key
 fn write_app<W: std::io::Write + std::io::Seek>(
     writer: &mut W,
     app: &App,
+    version: &AppInfoVersion,
     string_pools: &mut HashSet<String>,
 ) -> std::io::Result<()> {
     // Write the app info
@@ -171,11 +172,24 @@ fn write_app<W: std::io::Write + std::io::Seek>(
     writer.write_all(&app.access_token.to_le_bytes())?;
     writer.write_all(&*app.checksum_txt)?;
     writer.write_all(&app.change_number.to_le_bytes())?;
-    if let Some(checksum_bin) = &app.checksum_bin {
-        writer.write_all(checksum_bin.as_bytes())?;
-    }
 
-    write_keyvalues_internal(writer, &app.key_values, string_pools)
+    match version {
+        AppInfoVersion::V27 => write_keyvalues_internal(writer, &app.key_values, string_pools),
+        _ => {
+            let mut temp_writer = std::io::Cursor::new(Vec::new());
+            write_keyvalues_internal(&mut temp_writer, &app.key_values, string_pools)?;
+            temp_writer.set_position(0);
+
+            let buffer = temp_writer.into_inner();
+
+            let mut checksum = sha1_smol::Sha1::new();
+            checksum.update(&buffer);
+
+            let digest = checksum.digest().bytes();
+            writer.write_all(&digest)?;
+            writer.write_all(&buffer)
+        }
+    }
 }
 
 pub fn write_app_info<W: std::io::Write + std::io::Seek>(
@@ -205,7 +219,7 @@ pub fn write_app_info<W: std::io::Write + std::io::Seek>(
     };
 
     for (_, app) in &app_info.apps {
-        write_app(writer, app, &mut string_pools)?;
+        write_app(writer, app, &app_info.version, &mut string_pools)?;
     }
 
     // Get the current position, this is what we write later back in the offset
