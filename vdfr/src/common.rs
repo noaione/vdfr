@@ -19,6 +19,9 @@ pub(crate) const MAGIC_27: u32 = 0x07_56_44_27;
 pub(crate) const MAGIC_28: u32 = 0x07_56_44_28;
 pub(crate) const MAGIC_29: u32 = 0x07_56_44_29;
 
+pub(crate) const PKG_MAGIC_27: u32 = 0x06_56_55_27;
+pub(crate) const PKG_MAGIC_28: u32 = 0x06_56_55_28;
+
 #[derive(Clone, Default)]
 pub struct SHA1([u8; 20]);
 
@@ -134,6 +137,63 @@ impl std::fmt::Display for AppInfoVersion {
             AppInfoVersion::V27 => write!(f, "v27"),
             AppInfoVersion::V28 => write!(f, "v28"),
             AppInfoVersion::V29 => write!(f, "v29"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PkgInfoVersion {
+    V27,
+    V28,
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for PkgInfoVersion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u32((*self).into())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for PkgInfoVersion {
+    fn deserialize<D>(deserializer: D) -> Result<PkgInfoVersion, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let v: u32 = Deserialize::deserialize(deserializer)?;
+        v.try_into().map_err(serde::de::Error::custom)
+    }
+}
+
+impl TryInto<PkgInfoVersion> for u32 {
+    type Error = VdfrError;
+
+    fn try_into(self) -> Result<PkgInfoVersion, VdfrError> {
+        match self {
+            PKG_MAGIC_27 => Ok(PkgInfoVersion::V27),
+            PKG_MAGIC_28 => Ok(PkgInfoVersion::V28),
+            _ => Err(VdfrError::UnknownMagic(self)),
+        }
+    }
+}
+
+impl From<PkgInfoVersion> for u32 {
+    fn from(v: PkgInfoVersion) -> u32 {
+        match v {
+            PkgInfoVersion::V27 => PKG_MAGIC_27,
+            PkgInfoVersion::V28 => PKG_MAGIC_28,
+        }
+    }
+}
+
+impl std::fmt::Display for PkgInfoVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            PkgInfoVersion::V27 => write!(f, "v27"),
+            PkgInfoVersion::V28 => write!(f, "v28"),
         }
     }
 }
@@ -419,7 +479,7 @@ pub struct Package {
     pub id: u32,
     pub checksum: SHA1,
     pub change_number: u32,
-    pub pics: u64,
+    pub pics: Option<u64>,
     pub key_values: KeyValues,
 }
 
@@ -441,7 +501,7 @@ impl serde::Serialize for Package {
 
 #[derive(Debug, Clone)]
 pub struct PackageInfo {
-    pub version: u32,
+    pub version: PkgInfoVersion,
     pub universe: u32,
     pub packages: BTreeMap<u32, Package>,
 }

@@ -231,7 +231,9 @@ fn write_package<W: std::io::Write>(writer: &mut W, package_info: &Package) -> s
     writer.write_all(&package_info.id.to_le_bytes())?;
     writer.write_all(&*package_info.checksum)?;
     writer.write_all(&package_info.change_number.to_le_bytes())?;
-    writer.write_all(&package_info.pics.to_le_bytes())?;
+    if let Some(pics) = &package_info.pics {
+        writer.write_all(&pics.to_le_bytes())?;
+    }
 
     write_keyvalues_internal(writer, &package_info.key_values, &mut HashSet::new())
 }
@@ -241,7 +243,8 @@ pub fn write_package_info<W: std::io::Write>(
     package_info: &PackageInfo,
 ) -> std::io::Result<()> {
     // Write the package info
-    writer.write_all(&package_info.version.to_le_bytes())?;
+    let version_magic: u32 = package_info.version.into();
+    writer.write_all(&version_magic.to_le_bytes())?;
     writer.write_all(&package_info.universe.to_le_bytes())?;
     for (_, package) in &package_info.packages {
         write_package(writer, package)?;

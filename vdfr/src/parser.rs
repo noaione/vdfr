@@ -15,7 +15,7 @@ use crate::{
         BIN_COLOR, BIN_END, BIN_END_ALT, BIN_FLOAT32, BIN_INT32, BIN_INT64, BIN_KV, BIN_POINTER,
         BIN_STRING, BIN_UINT64, BIN_WIDESTRING,
     },
-    AppInfoVersion, Package, PackageInfo, SHA1,
+    AppInfoVersion, Package, PackageInfo, PkgInfoVersion, SHA1,
 };
 
 fn throw_nom_error(error: nom::Err<nom::error::Error<&[u8]>>) -> VdfrError {
@@ -224,9 +224,10 @@ fn parse_app<'a>(
 
 pub fn parse_package_info(data: &[u8]) -> Result<PackageInfo, VdfrError> {
     let (data, (version, universe)) = tuple((le_u32, le_u32))(data).map_err(throw_nom_error)?;
+    let version: PkgInfoVersion = version.try_into()?;
 
-    let (_, mut packages) =
-        parse_packages(data, &KeyValueOptions::default()).map_err(throw_nom_custom_error)?;
+    let (_, mut packages) = parse_packages(data, &KeyValueOptions::default(), &version)
+        .map_err(throw_nom_custom_error)?;
 
     packages.remove(&0xffffffff); // Remove the empty package (0xffffffff
 
@@ -240,8 +241,9 @@ pub fn parse_package_info(data: &[u8]) -> Result<PackageInfo, VdfrError> {
 fn parse_packages<'a>(
     data: &'a [u8],
     options: &'a KeyValueOptions,
+    version: &'a PkgInfoVersion,
 ) -> IResult<&'a [u8], BTreeMap<u32, Package>, VdfrNomError> {
-    let (rest, packages) = many0(|d| parse_package(d, options))(data)?;
+    let (rest, packages) = many0(|d| parse_package(d, options, version))(data)?;
 
     let hash_packages: BTreeMap<u32, Package> =
         packages.into_iter().map(|app| (app.id, app)).collect();
@@ -252,23 +254,35 @@ fn parse_packages<'a>(
 fn parse_package<'a>(
     data: &'a [u8],
     options: &'a KeyValueOptions,
+    version: &'a PkgInfoVersion,
 ) -> IResult<&'a [u8], Package, VdfrNomError> {
     let (data, package_id) = le_u32(data)?;
     if package_id == 0xffffffff {
+        let pics = match version {
+            PkgInfoVersion::V27 => None,
+            PkgInfoVersion::V28 => Some(0),
+        };
         return Ok((
             data,
             Package {
                 id: 0xffffffff,
                 checksum: SHA1::default(),
                 change_number: 0,
-                pics: 0,
+                pics,
                 key_values: BTreeMap::new(),
             },
         ));
     }
 
     let (data, checksum) = take(20usize)(data)?;
-    let (data, (change_number, pics)) = tuple((le_u32, le_u64))(data)?;
+    let (data, change_number) = le_u32(data)?;
+    let (data, pics) = match version {
+        PkgInfoVersion::V27 => (data, None),
+        PkgInfoVersion::V28 => {
+            let (data, pics) = le_u64(data)?;
+            (data, Some(pics))
+        }
+    };
 
     let (data, key_values) = parse_bytes_kv(data, options)?;
     let key_values = map_keyvalues_sequence(&key_values);

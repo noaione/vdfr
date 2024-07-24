@@ -8,7 +8,7 @@ use crate::{
         Value, VdfrError, BIN_COLOR, BIN_END, BIN_END_ALT, BIN_FLOAT32, BIN_INT32, BIN_INT64,
         BIN_KV, BIN_POINTER, BIN_STRING, BIN_UINT64, BIN_WIDESTRING,
     },
-    AppInfoVersion, SHA1,
+    AppInfoVersion, PkgInfoVersion, SHA1,
 };
 
 pub fn parse_app_info<R: std::io::Read + std::io::Seek>(
@@ -84,7 +84,7 @@ pub fn parse_app_info<R: std::io::Read + std::io::Seek>(
 }
 
 pub fn parse_package_info<R: std::io::Read>(reader: &mut R) -> Result<PackageInfo, VdfrError> {
-    let version = reader.read_u32::<LittleEndian>()?;
+    let version: PkgInfoVersion = reader.read_u32::<LittleEndian>()?.try_into()?;
     let universe = reader.read_u32::<LittleEndian>()?;
 
     let mut packageinfo = PackageInfo {
@@ -105,8 +105,10 @@ pub fn parse_package_info<R: std::io::Read>(reader: &mut R) -> Result<PackageInf
 
         let change_number = reader.read_u32::<LittleEndian>()?;
 
-        // XXX: No idea what this is. Seems to get ignored in vdf.py.
-        let pics = reader.read_u64::<LittleEndian>()?;
+        let pics = match version {
+            PkgInfoVersion::V27 => None,
+            PkgInfoVersion::V28 => Some(reader.read_u64::<LittleEndian>()?),
+        };
 
         let key_values = parse_keyvalues(reader, KeyValueOptions::default())?;
         let key_values = map_keyvalues_sequence(&key_values);
