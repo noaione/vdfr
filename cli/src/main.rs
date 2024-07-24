@@ -92,8 +92,19 @@ fn work_app_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
             .parent()
             .unwrap()
             .join(format!("app_{}.json", filename));
+        let time_it = std::time::Instant::now();
         let output_file = fs::File::create(&output_path).unwrap();
         vdfr::serde_json::to_writer_pretty(output_file, &data).unwrap();
+        println!("Time taken to dump JSON: {:?}", time_it.elapsed());
+
+        let output_path_redump = file
+            .parent()
+            .unwrap()
+            .join(format!("app_{}_redump.vdf", filename));
+        let time_it = std::time::Instant::now();
+        let mut output_file_redump = fs::File::create(&output_path_redump).unwrap();
+        vdfr::writer::write_app_info(&mut output_file_redump, &data).unwrap();
+        println!("Time taken to redump VDF: {:?}", time_it.elapsed());
     }
 }
 
@@ -132,8 +143,19 @@ fn work_pkg_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
             .parent()
             .unwrap()
             .join(format!("pkg_{}.json", filename));
+        let time_it = std::time::Instant::now();
         let output_file = fs::File::create(&output_path).unwrap();
         vdfr::serde_json::to_writer_pretty(output_file, &data).unwrap();
+        println!("Time taken to dump JSON: {:?}", time_it.elapsed());
+
+        let output_path_redump = file
+            .parent()
+            .unwrap()
+            .join(format!("pkg_{}_redump.vdf", filename));
+        let time_it = std::time::Instant::now();
+        let mut output_file_redump = fs::File::create(&output_path_redump).unwrap();
+        vdfr::writer::write_package_info(&mut output_file_redump, &data).unwrap();
+        println!("Time taken to redump VDF: {:?}", time_it.elapsed());
     }
 }
 
@@ -160,8 +182,19 @@ fn work_kv(file: &std::path::PathBuf, legacy: bool, redump: bool) {
     if redump {
         let filename = file.file_stem().unwrap().to_str().unwrap();
         let output_path = file.parent().unwrap().join(format!("kv_{}.json", filename));
+        let time_it = std::time::Instant::now();
         let output_file = fs::File::create(&output_path).unwrap();
         vdfr::serde_json::to_writer_pretty(output_file, &data).unwrap();
+        println!("Time taken to dump JSON: {:?}", time_it.elapsed());
+
+        let output_path_redump = file
+            .parent()
+            .unwrap()
+            .join(format!("kv_{}_redump.vdf", filename));
+        let time_it = std::time::Instant::now();
+        let mut output_file_redump = fs::File::create(&output_path_redump).unwrap();
+        vdfr::writer::write_keyvalues(&mut output_file_redump, &data).unwrap();
+        println!("Time taken to redump VDF: {:?}", time_it.elapsed());
     }
 }
 

@@ -26,6 +26,10 @@ impl SHA1 {
     pub fn new(data: [u8; 20]) -> Self {
         SHA1(data)
     }
+
+    pub fn as_bytes(&self) -> &[u8; 20] {
+        &self.0
+    }
 }
 
 impl Deref for SHA1 {
@@ -180,6 +184,44 @@ pub enum Value {
 }
 
 impl Value {
+    pub(crate) fn save_bin<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        match self {
+            Value::StringType(_) => {
+                writer.write_all(&[BIN_STRING])?;
+            }
+            Value::WideStringType(_) => {
+                writer.write_all(&[BIN_WIDESTRING])?;
+            }
+            Value::Int32Type(_) => {
+                writer.write_all(&[BIN_INT32])?;
+            }
+            Value::PointerType(_) => {
+                writer.write_all(&[BIN_POINTER])?;
+            }
+            Value::ColorType(_) => {
+                writer.write_all(&[BIN_COLOR])?;
+            }
+            Value::UInt64Type(_) => {
+                writer.write_all(&[BIN_UINT64])?;
+            }
+            Value::Int64Type(_) => {
+                writer.write_all(&[BIN_INT64])?;
+            }
+            Value::Float32Type(_) => {
+                writer.write_all(&[BIN_FLOAT32])?;
+            }
+            Value::KeyValueType(_) => {
+                writer.write_all(&[BIN_KV])?;
+            }
+            Value::ArrayType(_) => {
+                // Array type is KeyValueType
+                writer.write_all(&[BIN_KV])?;
+            }
+        }
+
+        Ok(())
+    }
+
     #[cfg(feature = "serde")]
     fn as_serde_json_value(&self) -> serde_json::Value {
         match self {
