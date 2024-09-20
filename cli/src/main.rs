@@ -57,33 +57,34 @@ fn get_random_num(total: usize) -> usize {
 
 fn work_app_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
     let data = if legacy {
-        let mut file = fs::File::open(file).unwrap();
+        let file = fs::File::open(file).unwrap();
+        let mut reader = std::io::BufReader::new(file);
         let time_it = std::time::Instant::now();
-        let reader = vdfr::legacy_parser::parse_app_info(&mut file).unwrap();
+        let parsed = vdfr::legacy_parser::parse_app_info(&mut reader).unwrap();
 
-        println!("Version: {}", reader.version);
-        println!("Universe: {}", reader.universe);
-        println!("Total apps: {}", reader.apps.len());
+        println!("Version: {}", parsed.version);
+        println!("Universe: {}", parsed.universe);
+        println!("Total apps: {}", parsed.apps.len());
         println!("Time taken to parse: {:?}", time_it.elapsed());
-        let total = reader.apps.values().count();
+        let total = parsed.apps.values().count();
         let random_app_pos = get_random_num(total);
-        let random_app = reader.apps.values().nth(random_app_pos).unwrap();
+        let random_app = parsed.apps.values().nth(random_app_pos).unwrap();
         println!("Random app: {:?}", random_app);
-        reader
+        parsed
     } else {
         let data = fs::read(file).unwrap();
 
         let time_it = std::time::Instant::now();
-        let reader = vdfr::parser::parse_app_info(&data).unwrap();
-        println!("Version: {}", reader.version);
-        println!("Universe: {}", reader.universe);
-        println!("Total apps: {}", reader.apps.len());
+        let parsed = vdfr::parser::parse_app_info(&data).unwrap();
+        println!("Version: {}", parsed.version);
+        println!("Universe: {}", parsed.universe);
+        println!("Total apps: {}", parsed.apps.len());
         println!("Time taken to parse: {:?}", time_it.elapsed());
-        let total = reader.apps.values().count();
+        let total = parsed.apps.values().count();
         let random_app_pos = get_random_num(total);
-        let random_app = reader.apps.values().nth(random_app_pos).unwrap();
+        let random_app = parsed.apps.values().nth(random_app_pos).unwrap();
         println!("Random app: {:?}", random_app);
-        reader
+        parsed
     };
 
     if redump {
@@ -110,31 +111,32 @@ fn work_app_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
 
 fn work_pkg_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
     let data = if legacy {
-        let mut file = fs::File::open(file).unwrap();
+        let file = fs::File::open(file).unwrap();
+        let mut reader = std::io::BufReader::new(file);
         let time_it = std::time::Instant::now();
-        let reader = vdfr::legacy_parser::parse_package_info(&mut file).unwrap();
+        let parsed = vdfr::legacy_parser::parse_package_info(&mut reader).unwrap();
 
-        println!("Version: {}", reader.version);
-        println!("Total packages: {}", reader.packages.len());
+        println!("Version: {}", parsed.version);
+        println!("Total packages: {}", parsed.packages.len());
         println!("Time taken to parse: {:?}", time_it.elapsed());
-        let total = reader.packages.values().count();
+        let total = parsed.packages.values().count();
         let random_pkg_pos = get_random_num(total);
-        let random_pkg = reader.packages.values().nth(random_pkg_pos).unwrap();
+        let random_pkg = parsed.packages.values().nth(random_pkg_pos).unwrap();
         println!("Random package: {:?}", random_pkg);
-        reader
+        parsed
     } else {
         let data = fs::read(file).unwrap();
 
         let time_it = std::time::Instant::now();
-        let reader = vdfr::parser::parse_package_info(&data).unwrap();
-        println!("Version: {}", reader.version);
-        println!("Total packages: {}", reader.packages.len());
+        let parsed = vdfr::parser::parse_package_info(&data).unwrap();
+        println!("Version: {}", parsed.version);
+        println!("Total packages: {}", parsed.packages.len());
         println!("Time taken to parse: {:?}", time_it.elapsed());
-        let total = reader.packages.values().count();
+        let total = parsed.packages.values().count();
         let random_pkg_pos = get_random_num(total);
-        let random_pkg = reader.packages.values().nth(random_pkg_pos).unwrap();
+        let random_pkg = parsed.packages.values().nth(random_pkg_pos).unwrap();
         println!("Random package: {:?}", random_pkg);
-        reader
+        parsed
     };
 
     if redump {
@@ -161,22 +163,23 @@ fn work_pkg_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {
 
 fn work_kv(file: &std::path::PathBuf, legacy: bool, redump: bool) {
     let data = if legacy {
-        let mut file = fs::File::open(file).unwrap();
+        let file = fs::File::open(file).unwrap();
+        let mut reader = std::io::BufReader::new(file);
         let time_it = std::time::Instant::now();
-        let reader =
-            vdfr::legacy_parser::parse_keyvalues(&mut file, KeyValueOptions::default()).unwrap();
+        let parsed =
+            vdfr::legacy_parser::parse_keyvalues(&mut reader, KeyValueOptions::default()).unwrap();
 
-        println!("Total key-values: {}", reader.len());
+        println!("Total key-values: {}", parsed.len());
         println!("Time taken to parse: {:?}", time_it.elapsed());
-        reader
+        parsed
     } else {
         let data = fs::read(file).unwrap();
 
         let time_it = std::time::Instant::now();
-        let reader = vdfr::parser::parse_keyvalues(&data).unwrap();
-        println!("Total key-values: {}", reader.len());
+        let parsed = vdfr::parser::parse_keyvalues(&data).unwrap();
+        println!("Total key-values: {}", parsed.len());
         println!("Time taken to parse: {:?}", time_it.elapsed());
-        reader
+        parsed
     };
 
     if redump {

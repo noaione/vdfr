@@ -11,9 +11,10 @@ use crate::{
     AppInfoVersion, PkgInfoVersion, SHA1,
 };
 
-pub fn parse_app_info<R: std::io::Read + std::io::Seek>(
-    reader: &mut R,
-) -> Result<AppInfo, VdfrError> {
+pub fn parse_app_info<R>(reader: &mut R) -> Result<AppInfo, VdfrError>
+where
+    R: std::io::BufRead + std::io::Seek,
+{
     let version: AppInfoVersion = reader.read_u32::<LittleEndian>()?.try_into()?;
 
     let universe = reader.read_u32::<LittleEndian>()?;
@@ -83,7 +84,10 @@ pub fn parse_app_info<R: std::io::Read + std::io::Seek>(
     Ok(appinfo)
 }
 
-pub fn parse_package_info<R: std::io::Read>(reader: &mut R) -> Result<PackageInfo, VdfrError> {
+pub fn parse_package_info<R>(reader: &mut R) -> Result<PackageInfo, VdfrError>
+where
+    R: std::io::BufRead + std::io::Seek,
+{
     let version: PkgInfoVersion = reader.read_u32::<LittleEndian>()?.try_into()?;
     let universe = reader.read_u32::<LittleEndian>()?;
 
@@ -127,10 +131,10 @@ pub fn parse_package_info<R: std::io::Read>(reader: &mut R) -> Result<PackageInf
     Ok(packageinfo)
 }
 
-pub fn parse_keyvalues<R: std::io::Read>(
-    reader: &mut R,
-    options: KeyValueOptions,
-) -> Result<KeyValues, VdfrError> {
+pub fn parse_keyvalues<R>(reader: &mut R, options: KeyValueOptions) -> Result<KeyValues, VdfrError>
+where
+    R: std::io::BufRead + std::io::Seek,
+{
     let current_bin_end = if options.alt_format {
         BIN_END_ALT
     } else {
@@ -185,7 +189,10 @@ pub fn parse_keyvalues<R: std::io::Read>(
     }
 }
 
-fn read_string<R: std::io::Read>(reader: &mut R, wide: bool) -> Result<String, Error> {
+fn read_string<R>(reader: &mut R, wide: bool) -> Result<String, Error>
+where
+    R: std::io::BufRead,
+{
     if wide {
         let mut buf: Vec<u16> = vec![];
         loop {
