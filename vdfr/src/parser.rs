@@ -5,8 +5,7 @@ use nom::{
     error::{ErrorKind, ParseError},
     multi::{count, many0},
     number::complete::{be_u16, le_f32, le_i32, le_i64, le_u16, le_u32, le_u64, le_u8},
-    sequence::tuple,
-    IResult,
+    IResult, Parser,
 };
 
 use crate::{
@@ -108,7 +107,7 @@ fn throw_nom_custom_error(error: nom::Err<VdfrNomError>) -> VdfrError {
 }
 
 pub fn parse_app_info(data: &[u8]) -> Result<AppInfo, VdfrError> {
-    let (data, (version, universe)) = tuple((le_u32, le_u32))(data).map_err(throw_nom_error)?;
+    let (data, (version, universe)) = (le_u32, le_u32).parse(data).map_err(throw_nom_error)?;
     let version: AppInfoVersion = version.try_into()?;
 
     let (payloads, options) = match version {
@@ -155,7 +154,7 @@ fn parse_apps<'a>(
     options: &'a KeyValueOptions,
     version: &'a AppInfoVersion,
 ) -> IResult<&'a [u8], BTreeMap<u32, App>, VdfrNomError> {
-    let (rest, apps) = many0(|d| parse_app(d, options, version))(data)?;
+    let (rest, apps) = many0(|d| parse_app(d, options, version)).parse(data)?;
 
     let hash_apps: BTreeMap<u32, App> = apps.into_iter().map(|app| (app.id, app)).collect();
 
@@ -187,7 +186,7 @@ fn parse_app<'a>(
         ))
     } else {
         let (data, (size, state, last_update, access_token)) =
-            tuple((le_u32, le_u32, le_u32, le_u64))(data)?;
+            (le_u32, le_u32, le_u32, le_u64).parse(data)?;
 
         let (data, checksum_txt) = take(20usize)(data)?;
         let (data, change_number) = le_u32(data)?;
@@ -223,7 +222,7 @@ fn parse_app<'a>(
 }
 
 pub fn parse_package_info(data: &[u8]) -> Result<PackageInfo, VdfrError> {
-    let (data, (version, universe)) = tuple((le_u32, le_u32))(data).map_err(throw_nom_error)?;
+    let (data, (version, universe)) = (le_u32, le_u32).parse(data).map_err(throw_nom_error)?;
     let version: PkgInfoVersion = version.try_into()?;
 
     let (_, mut packages) = parse_packages(data, &KeyValueOptions::default(), &version)
@@ -243,7 +242,7 @@ fn parse_packages<'a>(
     options: &'a KeyValueOptions,
     version: &'a PkgInfoVersion,
 ) -> IResult<&'a [u8], BTreeMap<u32, Package>, VdfrNomError> {
-    let (rest, packages) = many0(|d| parse_package(d, options, version))(data)?;
+    let (rest, packages) = many0(|d| parse_package(d, options, version)).parse(data)?;
 
     let hash_packages: BTreeMap<u32, Package> =
         packages.into_iter().map(|app| (app.id, app)).collect();
@@ -399,7 +398,7 @@ fn parse_bytes_kv<'a>(
 }
 
 fn read_string_pools(data: &[u8], amount: usize) -> IResult<&[u8], Vec<String>, VdfrNomError> {
-    count(parse_utf8, amount)(data)
+    count(parse_utf8, amount).parse(data)
 }
 
 fn parse_utf8(input: &[u8]) -> IResult<&[u8], String, VdfrNomError> {

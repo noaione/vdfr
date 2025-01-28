@@ -244,6 +244,7 @@ pub enum Value {
 }
 
 impl Value {
+    #[cfg(feature = "writer")]
     pub(crate) fn save_bin<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
         match self {
             Value::StringType(_) => {

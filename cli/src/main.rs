@@ -51,8 +51,8 @@ enum Subcommand {
 }
 
 fn get_random_num(total: usize) -> usize {
-    let mut rng = rand::thread_rng();
-    rng.gen_range(0..total)
+    let mut rng = rand::rng();
+    rng.random_range(0..total)
 }
 
 fn work_app_info(file: &std::path::PathBuf, legacy: bool, redump: bool) {

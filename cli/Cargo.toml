@@ -1,11 +1,11 @@
 [package]
 name = "vdf"
 description = "A tool for interrogating files that use Valve's binary VDF format."
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
-vdfr = { path = "../vdfr", features = ["legacy"] }
-clap = { version = "4.5.9", features = ["derive"] }
+vdfr = { path = "../vdfr", features = ["legacy", "writer"] }
+clap = { version = "4.5.27", features = ["derive"] }
 
-rand = "0.8.5"
+rand = "0.9.0"

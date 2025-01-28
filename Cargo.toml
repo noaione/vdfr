@@ -5,6 +5,10 @@ members = [
     "cli",
 ]
 
+[workspace.package]
+version = "0.1.1"
+edition = "2021"
+
 [profile.release]
 lto = true
 opt-level = "z"
